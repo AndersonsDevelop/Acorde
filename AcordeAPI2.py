@@ -178,7 +178,7 @@ def analisar_musica(caminho_arquivo):
 # 4. ROTA DA API
 # ==========================================
 @app.post("/extrair_acordes")
-async def extrair_acordes_endpoint(requisicao: MusicaRequest):
+def extrair_acordes_endpoint(requisicao: MusicaRequest):
     nome_temporario = f"audio_{uuid.uuid4().hex}"
     caminho_arquivo = ""
     try:
