@@ -86,7 +86,7 @@ def identificar_acorde(vetor_chroma):
 # ==========================================
 def baixar_audio(url_youtube, nome_arquivo):
     ydl_opts = {
-        'format': '18',  # Força o formato padrão MP4 360p que não exige descriptografia complexa de JS
+        'format': 'bestaudio',
         'outtmpl': f'{nome_arquivo}.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio', 
@@ -95,11 +95,18 @@ def baixar_audio(url_youtube, nome_arquivo):
         }],
         'quiet': True, 
         'no_warnings': True,
-        # Removemos o cookiefile problemático e forçamos o cliente mobile web puro
+        # Configuração atualizada para simular um player web real e contornar o bloqueio de bot
         'extractor-args': {
             'youtube': {
-                'player-client': ['mweb']
+                'player-client': ['web', 'mweb']
             }
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
         }
     }
     
