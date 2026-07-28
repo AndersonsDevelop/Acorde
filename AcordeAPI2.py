@@ -39,48 +39,42 @@ class MusicaRequest(BaseModel):
 # ==========================================
 notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-template_maior_base = np.array([1.2, 0, 0, -0.8, 1.0, 0, 0, 1.0, 0, 0, 0, 0], dtype=float) 
-template_menor_base = np.array([1.2, 0, 0, 1.0, -0.8, 0, 0, 1.0, 0, 0, 0, 0], dtype=float) 
-template_7_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, 0.9, -0.8], dtype=float) 
-template_maj7_base  = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, -0.8, 0.9], dtype=float) 
-template_m7_base    = np.array([1.0, 0, 0, 0.9, -0.8, 0, 0, 0.8, 0, 0, 0.9, -0.8], dtype=float) 
-template_6_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0.9, -0.8, -0.8], dtype=float) 
-template_sus4_base  = np.array([1.2, 0, 0, -1.0, -1.0, 1.0, 0, 1.0, 0, 0, 0, 0], dtype=float) 
-template_dim_base   = np.array([1.2, 0, 0, 1.0, -0.5, 0, 1.0, -1.0, 0, 0, 0, 0], dtype=float) 
-template_aug_base   = np.array([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0, 0], dtype=float) 
-
 templates_acordes = []
 nomes_acordes = []
 
+def criar_template(base, i):
+    arr = np.roll(base, i)
+    return np.array(arr, dtype=float)
+
 for i in range(12):
-    templates_acordes.append(np.roll(template_maior_base, i))
+    templates_acordes.append(criar_template([1.2, 0, 0, -0.8, 1.0, 0, 0, 1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(notas[i])
     
-    templates_acordes.append(np.roll(template_menor_base, i))
+    templates_acordes.append(criar_template([1.2, 0, 0, 1.0, -0.8, 0, 0, 1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}m")
     
-    templates_acordes.append(np.roll(template_7_base, i))
+    templates_acordes.append(criar_template([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, 0.9, -0.8], i))
     nomes_acordes.append(f"{notas[i]}7")
     
-    templates_acordes.append(np.roll(template_maj7_base, i))
+    templates_acordes.append(criar_template([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, -0.8, 0.9], i))
     nomes_acordes.append(f"{notas[i]}maj7")
     
-    templates_acordes.append(np.roll(template_m7_base, i))
+    templates_acordes.append(criar_template([1.0, 0, 0, 0.9, -0.8, 0, 0, 0.8, 0, 0, 0.9, -0.8], i))
     nomes_acordes.append(f"{notas[i]}m7")
     
-    templates_acordes.append(np.roll(template_dim_base, i))
+    templates_acordes.append(criar_template([1.2, 0, 0, 1.0, -0.5, 0, 1.0, -1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}dim")
     
-    templates_acordes.append(np.roll(template_aug_base, i))
+    templates_acordes.append(criar_template([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}aug")
     
-    templates_acordes.append(np.roll(template_sus4_base, i))
+    templates_acordes.append(criar_template([1.2, 0, 0, -1.0, -1.0, 1.0, 0, 1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}sus4")
     
-    templates_acordes.append(np.roll(template_6_base, i))
+    templates_acordes.append(criar_template([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0.9, -0.8, -0.8], i))
     nomes_acordes.append(f"{notas[i]}6")
 
-matriz_acordes = np.array(templates_acordes)
+matriz_acordes = np.vstack(templates_acordes)
 
 perfil_tom_maior = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
 perfil_tom_menor = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
