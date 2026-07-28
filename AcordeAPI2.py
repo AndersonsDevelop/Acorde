@@ -5,13 +5,11 @@ import librosa
 import numpy as np
 import scipy.ndimage
 import ffmpeg_downloader as ffdl
-import yt_dlp
 import traceback
-
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import sys
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 try:
     ffdl.add_path()
@@ -31,12 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class MusicaRequest(BaseModel):
-    url: str
-
-# ==========================================
-# 2. GABARITOS DE ACORDES DEFENSIVOS
-# ==========================================
 notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 templates_acordes = []
@@ -49,28 +41,20 @@ def criar_template(base, i):
 for i in range(12):
     templates_acordes.append(criar_template([1.2, 0, 0, -0.8, 1.0, 0, 0, 1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(notas[i])
-    
     templates_acordes.append(criar_template([1.2, 0, 0, 1.0, -0.8, 0, 0, 1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}m")
-    
     templates_acordes.append(criar_template([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, 0.9, -0.8], i))
     nomes_acordes.append(f"{notas[i]}7")
-    
     templates_acordes.append(criar_template([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, -0.8, 0.9], i))
     nomes_acordes.append(f"{notas[i]}maj7")
-    
     templates_acordes.append(criar_template([1.0, 0, 0, 0.9, -0.8, 0, 0, 0.8, 0, 0, 0.9, -0.8], i))
     nomes_acordes.append(f"{notas[i]}m7")
-    
     templates_acordes.append(criar_template([1.2, 0, 0, 1.0, -0.5, 0, 1.0, -1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}dim")
-    
     templates_acordes.append(criar_template([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}aug")
-    
     templates_acordes.append(criar_template([1.2, 0, 0, -1.0, -1.0, 1.0, 0, 1.0, 0, 0, 0, 0], i))
     nomes_acordes.append(f"{notas[i]}sus4")
-    
     templates_acordes.append(criar_template([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0.9, -0.8, -0.8], i))
     nomes_acordes.append(f"{notas[i]}6")
 
@@ -87,56 +71,11 @@ for i in range(12):
     templates_tons.append(np.roll(perfil_tom_menor, i))
     nomes_tons.append(f"{notas[i]}m")
 
-matriz_tons = np.array(templates_tons)
+matriz_tons = np.vstack(templates_tons)
 
 def identificar_acorde(vetor_chroma):
     pontuacoes = np.dot(matriz_acordes, vetor_chroma)
     return nomes_acordes[np.argmax(pontuacoes)]
-
-import requests
-
-def baixar_audio(url_youtube, nome_arquivo):
-    # Usa uma API de proxy/conversão pública para baixar o áudio do YouTube sem barreiras de bot
-    api_url = f"https://co.wuk.sh/api/json"
-    
-    payload = {
-        "url": url_youtube,
-        "isAudioOnly": True,
-        "audioFormat": "mp3"
-    }
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0"
-    }
-    
-    response = requests.post(api_url, json=payload, headers=headers)
-    if response.status_code != 200:
-        raise Exception("Erro ao se conectar com o serviço de conversão de áudio.")
-        
-    data = response.json()
-    if data.get("status") != "stream" and "url" not in data:
-        raise Exception("Não foi possível extrair o link de áudio do vídeo.")
-        
-    download_url = data.get("url")
-    titulo_video = data.get("filename", "Música Desconhecida").rsplit('.', 1)[0]
-    
-    # Baixa o arquivo MP3 direto para o ambiente do Render
-    audio_resp = requests.get(download_url, stream=True)
-    arquivo_mp3 = f"{nome_arquivo}.mp3"
-    with open(arquivo_mp3, "wb") as f:
-        for chunk in audio_resp.iter_content(chunk_size=8192):
-            f.write(chunk)
-            
-    # Converte para WAV (necessário para o Librosa processar os acordes)
-    caminho_wav = f"{nome_arquivo}.wav"
-    import subprocess
-    subprocess.run(["ffmpeg", "-i", arquivo_mp3, "-ar", "11025", "-ac", "1", caminho_wav], check=True)
-    
-    if os.path.exists(arquivo_mp3):
-        os.remove(arquivo_mp3)
-        
-    return caminho_wav, titulo_video
 
 def analisar_musica(caminho_arquivo):
     y, sr = librosa.load(caminho_arquivo, sr=11025, mono=True, duration=30.0)
@@ -150,14 +89,7 @@ def analisar_musica(caminho_arquivo):
     
     y_harmonic, _ = librosa.effects.hpss(y)
     chroma_geral = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, tuning=desvio_final)
-    
-    chroma_graves = librosa.feature.chroma_cqt(
-        y=y_harmonic, 
-        sr=sr, 
-        tuning=desvio_final,
-        fmin=librosa.note_to_hz('E2'), 
-        n_octaves=2
-    )
+    chroma_graves = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, tuning=desvio_final, fmin=librosa.note_to_hz('E2'), n_octaves=2)
     
     tamanho_minimo = min(chroma_geral.shape[1], chroma_graves.shape[1])
     chroma_geral_cortado = chroma_geral[:, :tamanho_minimo]
@@ -192,12 +124,11 @@ def analisar_musica(caminho_arquivo):
             acorde_anterior = acorde_detectado
             tempo_inicio = tempo_segundos
 
-    tempo_final = tempos[-1]
     if acorde_anterior is not None:
         cifra_resultado.append({
             "acorde": acorde_anterior,
             "inicio": round(tempo_inicio, 1),
-            "fim": round(tempo_final, 1)
+            "fim": round(tempos[-1], 1)
         })
         
     return {
@@ -208,22 +139,23 @@ def analisar_musica(caminho_arquivo):
     }
 
 @app.post("/extrair_acordes")
-def extrair_acordes_endpoint(requisicao: MusicaRequest):
-    nome_temporario = f"audio_{uuid.uuid4().hex}"
-    caminho_arquivo = ""
+async def extrair_acordes_endpoint(file: UploadFile = File(...)):
+    nome_temporario = f"audio_{uuid.uuid4().hex}_{file.filename}"
     try:
-        print(f"Processando URL: {requisicao.url}")
-        caminho_arquivo, titulo_video = baixar_audio(requisicao.url, nome_temporario)
-        resultado = analisar_musica(caminho_arquivo)
-        resultado["titulo"] = titulo_video
+        contents = await file.read()
+        with open(nome_temporario, "wb") as f:
+            f.write(contents)
+            
+        resultado = analisar_musica(nome_temporario)
+        resultado["titulo"] = file.filename
         return {"status": "sucesso", "dados": resultado}
     except Exception as e:
         print("ERRO DETECTADO NO BACKEND:")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if caminho_arquivo and os.path.exists(caminho_arquivo):
-            os.remove(caminho_arquivo)
+        if os.path.exists(nome_temporario):
+            os.remove(nome_temporario)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
