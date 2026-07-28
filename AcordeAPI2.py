@@ -95,10 +95,17 @@ def baixar_audio(url_youtube, nome_arquivo):
         }],
         'quiet': True, 
         'no_warnings': True,
-        # Altera os clientes para forçar o bypass do bloqueio de bot do YouTube
-        'extractor-args': {'youtube': {'player-client': ['ios', 'mweb', 'web']}},
+        # Força o yt-dlp a tentar múltiplos clientes de autenticação para evitar o bloqueio de bot
+        'extractor-args': {
+            'youtube': {
+                'player-client': ['android', 'web', 'mweb']
+            }
+        },
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Sec-Fetch-Mode': 'navigate',
         }
     }
     
