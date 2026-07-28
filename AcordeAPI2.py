@@ -5,11 +5,13 @@ import librosa
 import numpy as np
 import scipy.ndimage
 import ffmpeg_downloader as ffdl
+import requests
 import traceback
 import sys
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 try:
     ffdl.add_path()
@@ -28,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class MusicaRequest(BaseModel):
+    url: str
 
 notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
@@ -76,6 +81,48 @@ matriz_tons = np.vstack(templates_tons)
 def identificar_acorde(vetor_chroma):
     pontuacoes = np.dot(matriz_acordes, vetor_chroma)
     return nomes_acordes[np.argmax(pontuacoes)]
+
+def baixar_audio_youtube(url_youtube, nome_arquivo):
+    # Utiliza uma rota de extração pública indireta para evitar o bloqueio de IP do Render
+    api_url = "https://co.wuk.sh/api/json"
+    payload = {
+        "url": url_youtube,
+        "isAudioOnly": True,
+        "audioFormat": "mp3"
+    }
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
+    }
+    
+    response = requests.post(api_url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception("Erro ao se conectar com o serviço de extração de áudio.")
+        
+    data = response.json()
+    if "url" not in data:
+        raise Exception("Não foi possível obter o link de áudio do YouTube.")
+        
+    download_url = data["url"]
+    titulo_video = data.get("filename", "Música Desconhecida").rsplit('.', 1)[0]
+    
+    # Baixa o áudio temporariamente
+    audio_resp = requests.get(download_url, stream=True)
+    arquivo_mp3 = f"{nome_arquivo}.mp3"
+    with open(arquivo_mp3, "wb") as f:
+        for chunk in audio_resp.iter_content(chunk_size=8192):
+            f.write(chunk)
+            
+    # Converte para WAV para o Librosa processar
+    caminho_wav = f"{nome_arquivo}.wav"
+    import subprocess
+    subprocess.run(["ffmpeg", "-i", arquivo_mp3, "-ar", "11025", "-ac", "1", caminho_wav], check=True)
+    
+    if os.path.exists(arquivo_mp3):
+        os.remove(arquivo_mp3)
+        
+    return caminho_wav, titulo_video
 
 def analisar_musica(caminho_arquivo):
     y, sr = librosa.load(caminho_arquivo, sr=11025, mono=True, duration=30.0)
@@ -139,23 +186,22 @@ def analisar_musica(caminho_arquivo):
     }
 
 @app.post("/extrair_acordes")
-async def extrair_acordes_endpoint(file: UploadFile = File(...)):
-    nome_temporario = f"audio_{uuid.uuid4().hex}_{file.filename}"
+def extrair_acordes_endpoint(requisicao: MusicaRequest):
+    nome_temporario = f"audio_{uuid.uuid4().hex}"
+    caminho_arquivo = ""
     try:
-        contents = await file.read()
-        with open(nome_temporario, "wb") as f:
-            f.write(contents)
-            
-        resultado = analisar_musica(nome_temporario)
-        resultado["titulo"] = file.filename
+        print(f"Processando URL do YouTube: {requisicao.url}")
+        caminho_arquivo, titulo_video = baixar_audio_youtube(requisicao.url, nome_temporario)
+        resultado = analisar_musica(caminho_arquivo)
+        resultado["titulo"] = titulo_video
         return {"status": "sucesso", "dados": resultado}
     except Exception as e:
         print("ERRO DETECTADO NO BACKEND:")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if os.path.exists(nome_temporario):
-            os.remove(nome_temporario)
+        if caminho_arquivo and os.path.exists(caminho_arquivo):
+            os.remove(caminho_arquivo)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
