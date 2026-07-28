@@ -2,7 +2,7 @@ import librosa
 import numpy as np
 import scipy.ndimage
 import os
-import ffdl
+import ffmpeg_downloader as ffdl
 import yt_dlp
 import uuid
 import uvicorn
@@ -11,7 +11,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sys
-ffdl.add_path()
+try:
+    ffdl.add_path()
+except Exception:
+    ffdl.download_ffmpeg()
+    ffdl.add_path()
 
 sys.stdout.reconfigure(encoding='utf-8')
 
