@@ -19,7 +19,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://gleeful-toffee-11c666.netlify.app"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -106,7 +106,7 @@ def baixar_audio(url_youtube, nome_arquivo):
 
 def analisar_musica(caminho_arquivo):
     # Carrega 30 segundos de áudio para análise
-    y, sr = librosa.load(caminho_arquivo, duration=30.0)
+    y, sr = librosa.load(caminho_arquivo, sr=11025, mono=True, duration=30.0)
     
     desvio_afinacao = librosa.estimate_tuning(y=y, sr=sr)
     desvio_final = float(desvio_afinacao[0]) if isinstance(desvio_afinacao, np.ndarray) else float(desvio_afinacao)
@@ -178,7 +178,7 @@ def analisar_musica(caminho_arquivo):
 # 4. ROTA DA API
 # ==========================================
 @app.post("/extrair_acordes")
-def extrair_acordes_endpoint(requisicao: MusicaRequest):
+async def extrair_acordes_endpoint(requisicao: MusicaRequest):
     nome_temporario = f"audio_{uuid.uuid4().hex}"
     caminho_arquivo = ""
     try:
