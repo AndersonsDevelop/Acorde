@@ -3,3 +3,4 @@ numpy
 scipy
 fastapi
 uvicorn
+yt-dlp
