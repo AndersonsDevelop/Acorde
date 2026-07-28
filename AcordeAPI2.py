@@ -1,17 +1,18 @@
+import os
+import uuid
+import uvicorn
 import librosa
 import numpy as np
 import scipy.ndimage
-import os
 import ffmpeg_downloader as ffdl
 import yt_dlp
-import uuid
-import uvicorn
-import requests
+import traceback
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sys
+
 try:
     ffdl.add_path()
 except Exception:
@@ -33,9 +34,6 @@ app.add_middleware(
 class MusicaRequest(BaseModel):
     url: str
 
-# ==========================================
-# 2. GABARITOS DE ACORDES DEFENSIVOS
-# ==========================================
 notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 template_maior_base = np.array([1.2, 0, 0, -0.8, 1.0, 0, 0, 1.0, 0, 0, 0, 0]) 
@@ -46,13 +44,13 @@ template_m7_base    = np.array([1.0, 0, 0, 0.9, -0.8, 0, 0, 0.8, 0, 0, 0.9, -0.8
 template_6_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0.9, -0.8, -0.8]) 
 template_sus4_base  = np.array([1.2, 0, 0, -1.0, -1.0, 1.0, 0, 1.0, 0, 0, 0, 0]) 
 template_dim_base   = np.array([1.2, 0, 0, 1.0, -0.5, 0, 1.0, -1.0, 0, 0, 0, 0]) 
-template_aug_base   = np.array([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0]) 
+template_aug_base   = np.array([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0, 0]) 
 
 templates_acordes, nomes_acordes = [], []
 for i in range(12):
     templates_acordes.append(np.roll(template_maior_base, i)); nomes_acordes.append(notas[i])
     templates_acordes.append(np.roll(template_menor_base, i)); nomes_acordes.append(f"{notas[i]}m")
-    templates_acordes.append(np.roll(template_7_base, i));     nomes_acordes.append(f"{notas[i]}7")
+    templates_acordes.append(np.roll(template_7_base, i));    nomes_acordes.append(f"{notas[i]}7")
     templates_acordes.append(np.roll(template_maj7_base, i));  nomes_acordes.append(f"{notas[i]}maj7")
     templates_acordes.append(np.roll(template_m7_base, i));    nomes_acordes.append(f"{notas[i]}m7")
     templates_acordes.append(np.roll(template_dim_base, i));   nomes_acordes.append(f"{notas[i]}dim")
@@ -62,9 +60,6 @@ for i in range(12):
 
 matriz_acordes = np.array(templates_acordes)
 
-# ==========================================
-# GABARITOS DE TONALIDADE
-# ==========================================
 perfil_tom_maior = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
 perfil_tom_menor = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
 
@@ -82,55 +77,27 @@ def identificar_acorde(vetor_chroma):
     pontuacoes = np.dot(matriz_acordes, vetor_chroma)
     return nomes_acordes[np.argmax(pontuacoes)]
 
-# ==========================================
-# 3. LÓGICA DE ÁUDIO
-# ==========================================
-
 def baixar_audio(url_youtube, nome_arquivo):
-    # Usa a API pública do Cobalt para extrair o link de áudio direto sem bloqueio de IP
-    cobalt_url = "https://api.cobalt.tools/api/json"
-    payload = {
-        "url": url_youtube,
-        "downloadMode": "audio",
-        "audioFormat": "mp3"
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{nome_arquivo}.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio', 
+            'preferredcodec': 'wav', 
+            'preferredquality': '192'
+        }],
+        'quiet': True, 
+        'no_warnings': True,
+        'extractor-args': {'youtube': {'player-client': ['android']}},
     }
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0"
-    }
     
-    response = requests.post(cobalt_url, json=payload, headers=headers)
-    if response.status_code != 200:
-        raise Exception("Falha ao se conectar com o serviço de extração de áudio.")
-    
-    data = response.json()
-    if "url" not in data:
-        raise Exception("Não foi possível obter o link de áudio do vídeo.")
-    
-    stream_url = data["url"]
-    titulo_video = data.get("filename", "Música Desconhecida").rsplit('.', 1)[0]
-    
-    # Baixa o arquivo de áudio streamado diretamente para o disco do Render
-    audio_response = requests.get(stream_url, stream=True)
-    arquivo_mp3 = f"{nome_arquivo}.mp3"
-    with open(arquivo_mp3, "wb") as f:
-        for chunk in audio_response.iter_content(chunk_size=8192):
-            f.write(chunk)
-            
-    # Converte o MP3 para WAV para o Librosa processar perfeitamente
-    caminho_wav = f"{nome_arquivo}.wav"
-    import subprocess
-    subprocess.run(["ffmpeg", "-i", arquivo_mp3, "-ar", "11025", "-ac", "1", caminho_wav], check=True)
-    
-    # Remove o mp3 temporário
-    if os.path.exists(arquivo_mp3):
-        os.remove(arquivo_mp3)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url_youtube, download=True)
+        titulo_video = info.get('title', 'Música Desconhecida')
         
-    return caminho_wav, titulo_video
+    return f"{nome_arquivo}.wav", titulo_video
 
 def analisar_musica(caminho_arquivo):
-    # Carrega 30 segundos de áudio para análise
     y, sr = librosa.load(caminho_arquivo, sr=11025, mono=True, duration=30.0)
     
     desvio_afinacao = librosa.estimate_tuning(y=y, sr=sr)
@@ -199,29 +166,23 @@ def analisar_musica(caminho_arquivo):
         "cifra": cifra_resultado
     }
 
-# ==========================================
-# 4. ROTA DA API
-# ==========================================
 @app.post("/extrair_acordes")
 def extrair_acordes_endpoint(requisicao: MusicaRequest):
-    print(f"Recebida requisição para a URL: {requisicao.url}") # Log para forçar aparição no Render
     nome_temporario = f"audio_{uuid.uuid4().hex}"
     caminho_arquivo = ""
     try:
+        print(f"Processando URL: {requisicao.url}")
         caminho_arquivo, titulo_video = baixar_audio(requisicao.url, nome_temporario)
         resultado = analisar_musica(caminho_arquivo)
         resultado["titulo"] = titulo_video
         return {"status": "sucesso", "dados": resultado}
     except Exception as e:
-        import traceback
-        error_msg = str(e)
-        print("--- ERRO CRTICO DETECTADO ---")
-        print(traceback.format_exc()) # Imprime o rastro completo do erro no log do Render
-        raise HTTPException(status_code=500, detail=error_msg)
+        print("ERRO DETECTADO NO BACKEND:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         if caminho_arquivo and os.path.exists(caminho_arquivo):
             os.remove(caminho_arquivo)
 
 if __name__ == "__main__":
-    # Roda o servidor localmente na porta 8000
     uvicorn.run(app, host="0.0.0.0", port=8000)
