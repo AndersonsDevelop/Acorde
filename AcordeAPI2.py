@@ -95,17 +95,11 @@ def baixar_audio(url_youtube, nome_arquivo):
         }],
         'quiet': True, 
         'no_warnings': True,
-        # Força o yt-dlp a tentar múltiplos clientes de autenticação para evitar o bloqueio de bot
+        'cookiefile': 'cookies.txt',  # <-- Adiciona o arquivo de cookies enviado ao repositório
         'extractor-args': {
             'youtube': {
-                'player-client': ['android', 'web', 'mweb']
+                'player-client': ['android', 'web']
             }
-        },
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-us,en;q=0.5',
-            'Sec-Fetch-Mode': 'navigate',
         }
     }
     
