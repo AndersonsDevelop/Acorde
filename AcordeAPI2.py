@@ -183,15 +183,20 @@ def analisar_musica(caminho_arquivo):
 # ==========================================
 @app.post("/extrair_acordes")
 def extrair_acordes_endpoint(requisicao: MusicaRequest):
+    print(f"Recebida requisição para a URL: {requisicao.url}") # Log para forçar aparição no Render
     nome_temporario = f"audio_{uuid.uuid4().hex}"
     caminho_arquivo = ""
     try:
         caminho_arquivo, titulo_video = baixar_audio(requisicao.url, nome_temporario)
         resultado = analisar_musica(caminho_arquivo)
-        resultado["titulo"] = titulo_video # Adiciona o título no dicionário de resposta
+        resultado["titulo"] = titulo_video
         return {"status": "sucesso", "dados": resultado}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_msg = str(e)
+        print("--- ERRO CRTICO DETECTADO ---")
+        print(traceback.format_exc()) # Imprime o rastro completo do erro no log do Render
+        raise HTTPException(status_code=500, detail=error_msg)
     finally:
         if caminho_arquivo and os.path.exists(caminho_arquivo):
             os.remove(caminho_arquivo)
