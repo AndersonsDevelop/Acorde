@@ -1,3 +1,5 @@
 librosa
 numpy
 scipy
+fastapi
+uvicorn
