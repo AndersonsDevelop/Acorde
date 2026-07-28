@@ -93,25 +93,50 @@ def identificar_acorde(vetor_chroma):
     pontuacoes = np.dot(matriz_acordes, vetor_chroma)
     return nomes_acordes[np.argmax(pontuacoes)]
 
+import requests
+
 def baixar_audio(url_youtube, nome_arquivo):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': f'{nome_arquivo}.%(ext)s',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio', 
-            'preferredcodec': 'wav', 
-            'preferredquality': '192'
-        }],
-        'quiet': True, 
-        'no_warnings': True,
-        'extractor-args': {'youtube': {'player-client': ['android']}},
+    # Usa uma API de proxy/conversão pública para baixar o áudio do YouTube sem barreiras de bot
+    api_url = f"https://co.wuk.sh/api/json"
+    
+    payload = {
+        "url": url_youtube,
+        "isAudioOnly": True,
+        "audioFormat": "mp3"
+    }
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
     }
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url_youtube, download=True)
-        titulo_video = info.get('title', 'Música Desconhecida')
+    response = requests.post(api_url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception("Erro ao se conectar com o serviço de conversão de áudio.")
         
-    return f"{nome_arquivo}.wav", titulo_video
+    data = response.json()
+    if data.get("status") != "stream" and "url" not in data:
+        raise Exception("Não foi possível extrair o link de áudio do vídeo.")
+        
+    download_url = data.get("url")
+    titulo_video = data.get("filename", "Música Desconhecida").rsplit('.', 1)[0]
+    
+    # Baixa o arquivo MP3 direto para o ambiente do Render
+    audio_resp = requests.get(download_url, stream=True)
+    arquivo_mp3 = f"{nome_arquivo}.mp3"
+    with open(arquivo_mp3, "wb") as f:
+        for chunk in audio_resp.iter_content(chunk_size=8192):
+            f.write(chunk)
+            
+    # Converte para WAV (necessário para o Librosa processar os acordes)
+    caminho_wav = f"{nome_arquivo}.wav"
+    import subprocess
+    subprocess.run(["ffmpeg", "-i", arquivo_mp3, "-ar", "11025", "-ac", "1", caminho_wav], check=True)
+    
+    if os.path.exists(arquivo_mp3):
+        os.remove(arquivo_mp3)
+        
+    return caminho_wav, titulo_video
 
 def analisar_musica(caminho_arquivo):
     y, sr = librosa.load(caminho_arquivo, sr=11025, mono=True, duration=30.0)
