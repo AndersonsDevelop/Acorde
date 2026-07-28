@@ -34,29 +34,51 @@ app.add_middleware(
 class MusicaRequest(BaseModel):
     url: str
 
+# ==========================================
+# 2. GABARITOS DE ACORDES DEFENSIVOS
+# ==========================================
 notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-template_maior_base = np.array([1.2, 0, 0, -0.8, 1.0, 0, 0, 1.0, 0, 0, 0, 0]) 
-template_menor_base = np.array([1.2, 0, 0, 1.0, -0.8, 0, 0, 1.0, 0, 0, 0, 0]) 
-template_7_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, 0.9, -0.8]) 
-template_maj7_base  = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, -0.8, 0.9]) 
-template_m7_base    = np.array([1.0, 0, 0, 0.9, -0.8, 0, 0, 0.8, 0, 0, 0.9, -0.8]) 
-template_6_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0.9, -0.8, -0.8]) 
-template_sus4_base  = np.array([1.2, 0, 0, -1.0, -1.0, 1.0, 0, 1.0, 0, 0, 0, 0]) 
-template_dim_base   = np.array([1.2, 0, 0, 1.0, -0.5, 0, 1.0, -1.0, 0, 0, 0, 0]) 
-template_aug_base   = np.array([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0, 0]) 
+template_maior_base = np.array([1.2, 0, 0, -0.8, 1.0, 0, 0, 1.0, 0, 0, 0, 0], dtype=float) 
+template_menor_base = np.array([1.2, 0, 0, 1.0, -0.8, 0, 0, 1.0, 0, 0, 0, 0], dtype=float) 
+template_7_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, 0.9, -0.8], dtype=float) 
+template_maj7_base  = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0, -0.8, 0.9], dtype=float) 
+template_m7_base    = np.array([1.0, 0, 0, 0.9, -0.8, 0, 0, 0.8, 0, 0, 0.9, -0.8], dtype=float) 
+template_6_base     = np.array([1.0, 0, 0, -0.8, 0.9, 0, 0, 0.8, 0, 0.9, -0.8, -0.8], dtype=float) 
+template_sus4_base  = np.array([1.2, 0, 0, -1.0, -1.0, 1.0, 0, 1.0, 0, 0, 0, 0], dtype=float) 
+template_dim_base   = np.array([1.2, 0, 0, 1.0, -0.5, 0, 1.0, -1.0, 0, 0, 0, 0], dtype=float) 
+template_aug_base   = np.array([1.2, 0, 0, -0.5, 1.0, 0, 0, -1.0, 1.0, 0, 0, 0, 0], dtype=float) 
 
-templates_acordes, nomes_acordes = [], []
+templates_acordes = []
+nomes_acordes = []
+
 for i in range(12):
-    templates_acordes.append(np.roll(template_maior_base, i)); nomes_acordes.append(notas[i])
-    templates_acordes.append(np.roll(template_menor_base, i)); nomes_acordes.append(f"{notas[i]}m")
-    templates_acordes.append(np.roll(template_7_base, i));    nomes_acordes.append(f"{notas[i]}7")
-    templates_acordes.append(np.roll(template_maj7_base, i));  nomes_acordes.append(f"{notas[i]}maj7")
-    templates_acordes.append(np.roll(template_m7_base, i));    nomes_acordes.append(f"{notas[i]}m7")
-    templates_acordes.append(np.roll(template_dim_base, i));   nomes_acordes.append(f"{notas[i]}dim")
-    templates_acordes.append(np.roll(template_aug_base, i));   nomes_acordes.append(f"{notas[i]}aug")
-    templates_acordes.append(np.roll(template_sus4_base, i));  nomes_acordes.append(f"{notas[i]}sus4")
-    templates_acordes.append(np.roll(template_6_base, i));     nomes_acordes.append(f"{notas[i]}6")
+    templates_acordes.append(np.roll(template_maior_base, i))
+    nomes_acordes.append(notas[i])
+    
+    templates_acordes.append(np.roll(template_menor_base, i))
+    nomes_acordes.append(f"{notas[i]}m")
+    
+    templates_acordes.append(np.roll(template_7_base, i))
+    nomes_acordes.append(f"{notas[i]}7")
+    
+    templates_acordes.append(np.roll(template_maj7_base, i))
+    nomes_acordes.append(f"{notas[i]}maj7")
+    
+    templates_acordes.append(np.roll(template_m7_base, i))
+    nomes_acordes.append(f"{notas[i]}m7")
+    
+    templates_acordes.append(np.roll(template_dim_base, i))
+    nomes_acordes.append(f"{notas[i]}dim")
+    
+    templates_acordes.append(np.roll(template_aug_base, i))
+    nomes_acordes.append(f"{notas[i]}aug")
+    
+    templates_acordes.append(np.roll(template_sus4_base, i))
+    nomes_acordes.append(f"{notas[i]}sus4")
+    
+    templates_acordes.append(np.roll(template_6_base, i))
+    nomes_acordes.append(f"{notas[i]}6")
 
 matriz_acordes = np.array(templates_acordes)
 
