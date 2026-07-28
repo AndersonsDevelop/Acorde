@@ -86,7 +86,7 @@ def identificar_acorde(vetor_chroma):
 # ==========================================
 def baixar_audio(url_youtube, nome_arquivo):
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': '18',  # Força o formato padrão MP4 360p que não exige descriptografia complexa de JS
         'outtmpl': f'{nome_arquivo}.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio', 
@@ -95,15 +95,12 @@ def baixar_audio(url_youtube, nome_arquivo):
         }],
         'quiet': True, 
         'no_warnings': True,
-        'cookiefile': 'cookies.txt',
+        # Removemos o cookiefile problemático e forçamos o cliente mobile web puro
         'extractor-args': {
             'youtube': {
-                'player-client': ['android', 'web']
+                'player-client': ['mweb']
             }
-        },
-        # Evita falhas de descriptografia em servidores isolados
-        'geo_bypass': True,
-        'nocheckcertificate': True
+        }
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
