@@ -1,9 +1,3 @@
 librosa
 numpy
-scipy.ndimage
-os
-yt_dlp
-uuid
-uvicorn
-sys
-fastapi
+scipy
