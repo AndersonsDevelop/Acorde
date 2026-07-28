@@ -6,6 +6,7 @@ import ffmpeg_downloader as ffdl
 import yt_dlp
 import uuid
 import uvicorn
+import requests
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -84,37 +85,49 @@ def identificar_acorde(vetor_chroma):
 # ==========================================
 # 3. LÓGICA DE ÁUDIO
 # ==========================================
+
 def baixar_audio(url_youtube, nome_arquivo):
-    ydl_opts = {
-        'format': 'bestaudio',
-        'outtmpl': f'{nome_arquivo}.%(ext)s',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio', 
-            'preferredcodec': 'wav', 
-            'preferredquality': '192'
-        }],
-        'quiet': True, 
-        'no_warnings': True,
-        # Configuração atualizada para simular um player web real e contornar o bloqueio de bot
-        'extractor-args': {
-            'youtube': {
-                'player-client': ['web', 'mweb']
-            }
-        },
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
-        }
+    # Usa a API pública do Cobalt para extrair o link de áudio direto sem bloqueio de IP
+    cobalt_url = "https://api.cobalt.tools/api/json"
+    payload = {
+        "url": url_youtube,
+        "downloadMode": "audio",
+        "audioFormat": "mp3"
+    }
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
     }
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url_youtube, download=True)
-        titulo_video = info.get('title', 'Música Desconhecida')
+    response = requests.post(cobalt_url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise Exception("Falha ao se conectar com o serviço de extração de áudio.")
+    
+    data = response.json()
+    if "url" not in data:
+        raise Exception("Não foi possível obter o link de áudio do vídeo.")
+    
+    stream_url = data["url"]
+    titulo_video = data.get("filename", "Música Desconhecida").rsplit('.', 1)[0]
+    
+    # Baixa o arquivo de áudio streamado diretamente para o disco do Render
+    audio_response = requests.get(stream_url, stream=True)
+    arquivo_mp3 = f"{nome_arquivo}.mp3"
+    with open(arquivo_mp3, "wb") as f:
+        for chunk in audio_response.iter_content(chunk_size=8192):
+            f.write(chunk)
+            
+    # Converte o MP3 para WAV para o Librosa processar perfeitamente
+    caminho_wav = f"{nome_arquivo}.wav"
+    import subprocess
+    subprocess.run(["ffmpeg", "-i", arquivo_mp3, "-ar", "11025", "-ac", "1", caminho_wav], check=True)
+    
+    # Remove o mp3 temporário
+    if os.path.exists(arquivo_mp3):
+        os.remove(arquivo_mp3)
         
-    return f"{nome_arquivo}.wav", titulo_video
+    return caminho_wav, titulo_video
 
 def analisar_musica(caminho_arquivo):
     # Carrega 30 segundos de áudio para análise

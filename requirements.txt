@@ -5,3 +5,4 @@ fastapi
 uvicorn
 yt-dlp>=2026.03.00
 ffmpeg-downloader
+requests
